@@ -14,15 +14,19 @@
     let corridorMaxSize = 4;
 
     let root: Node<Region>;
-    let rooms: Room[];
-    let corridors: Corridor[];
+    let corridors: Corridor[] = [];
 
     const initRegion: Region = {
         x: { min: 0, max: width },
         y: { min: 0, max: height },
     };
 
-    const joinRooms = (r1: Room, r2: Room, rng: Random): Corridor | null => {
+    const joinRooms = (
+        r1: Room,
+        r2: Room,
+        rng: Random,
+        maxSize: number
+    ): Corridor[] | null => {
         let r1A = r1.position.y;
         let r1B = r1A + r1.height;
         let r1C = r1.position.x;
@@ -50,51 +54,49 @@
                 const [otherMin, otherMax] = [r1A, r1B, r2A, r2B]
                     .sort((a, b) => a - b)
                     .slice(1, 3);
-                const s = rng.integer(2, corridorMaxSize);
+                const s = rng.integer(2, maxSize);
                 const valueStart = rng.integer(otherMin, otherMax - s);
                 const delta = stop - start;
-                return {
-                    position: {
-                        x: isYAxis ? valueStart : start,
-                        y: isYAxis ? start : valueStart,
+                return [
+                    {
+                        position: {
+                            x: isYAxis ? valueStart : start,
+                            y: isYAxis ? start : valueStart,
+                        },
+                        width: isYAxis ? s : delta,
+                        height: isYAxis ? delta : s,
                     },
-                    width: isYAxis ? s : delta,
-                    height: isYAxis ? delta : s,
-                };
+                ];
             }
         }
 
         /* Z shaped corridor */
-        // const highest =
-        //     room.position.y + room.height < sibling.position.y
-        //         ? room
-        //         : sibling;
-        // const lowest =
-        //     room.position.y + room.height < sibling.position.y
-        //         ? sibling
-        //         : room;
+        // const highest = r1.position.y + r1.height < r2.position.y ? r1 : r2;
+        // const lowest = r1.position.y + r1.height < r2.position.y ? r2 : r1;
         // const isRight = highest.position.x > lowest.position.x;
 
         // const width = rng.integer(2, corridorMaxSize);
         // const height =
         //     lowest.position.y - (highest.position.y + highest.height);
-        // corridors.push({
-        //     position: {
-        //         x: highest.position.x,
-        //         y: highest.position.y + highest.height,
+        // return [
+        //     {
+        //         position: {
+        //             x: highest.position.x,
+        //             y: highest.position.y + highest.height,
+        //         },
+        //         width,
+        //         height,
         //     },
-        //     width,
-        //     height,
-        // });
-        // corridors.push({
-        //     position: {
-        //         x: highest.position.x,
-        //         y: highest.position.y + highest.height + height,
+        //     {
+        //         position: {
+        //             x: highest.position.x,
+        //             y: highest.position.y + highest.height + height,
+        //         },
+        //         width,
+        //         height:
+        //             lowest.position.y - (highest.position.y + highest.height),
         //     },
-        //     width,
-        //     height:
-        //         lowest.position.y - (highest.position.y + highest.height),
-        // });
+        // ];
     };
 
     $: {
@@ -124,7 +126,6 @@
         });
         root.split();
 
-        rooms = [];
         const lastChildren = root.getLastChildren();
         for (const node of lastChildren) {
             const region = node.data;
@@ -136,27 +137,45 @@
                 x: rng.integer(0, regionWidth(region) - width) + region.x.min,
                 y: rng.integer(0, regionHeight(region) - height) + region.y.min,
             };
-            rooms.push({
+            node.data.room = {
                 position,
                 width,
                 height,
-                node,
-            });
+            };
         }
 
         corridors = [];
         const markedDone: string[] = [];
-        for (const room of rooms) {
-            const sibling: Room = rooms.find(
-                (r) => r.node.id == room.node.getSibling().id
+        for (const child of lastChildren) {
+            const sibling: Node<Region> = child.getSibling();
+            if (markedDone.includes(sibling.id)) continue;
+            const corridor = joinRooms(
+                child.data.room,
+                sibling.data.room,
+                rng,
+                corridorMaxSize
             );
-            if (markedDone.includes(sibling.node.id)) continue;
-            const corridor = joinRooms(room, sibling, rng);
             if (corridor) {
-                corridors.push(corridor);
-                markedDone.push(room.node.id);
+                corridors.push(...corridor);
+                markedDone.push(child.id);
             }
         }
+
+        // const thirdRegion = root.children[0].children[0];
+
+        // const pick1 = rng.pick(thirdRegion.children[0].children).data;
+        // const pick2 = rng.pick(thirdRegion.children[1].children).data;
+
+        // const corridor = joinRooms(
+        //     pick1.room,
+        //     pick2.room,
+        //     rng,
+        //     corridorMaxSize
+        // );
+        // if (corridor) {
+        //     corridors.push(...corridor);
+        // }
+        // console.log(pick1, pick2);
     }
 </script>
 
@@ -192,7 +211,7 @@
             {/each}
         {/if}
 
-        {#each rooms as room}
+        {#each root.getLastChildren().map((n) => n.data.room) as room}
             <rect
                 x={room.position.x}
                 y={room.position.y}

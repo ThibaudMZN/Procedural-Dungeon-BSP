@@ -10,13 +10,13 @@ type MinMax = {
 type Region = {
   x: MinMax;
   y: MinMax;
+  room?: Room;
 };
 
 type Room = {
   position: Point; // Top-Left
   width: number;
   height: number;
-  node: Node<Region>;
 };
 
 type Corridor = {

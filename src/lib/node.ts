@@ -24,7 +24,12 @@ export class Node<T> {
     this.children = [];
     const data = this.splitRules(this.data);
     for (let i = 0; i < 2; i++) {
-      const child = new Node<T>(data[i], this.maxDepth, this.splitRules, this);
+      const child = new Node<T>(
+        data[i],
+        this.maxDepth,
+        this.splitRules,
+        this,
+      );
       this.children.push(child);
       this.children[i].split(depth + 1);
     }
