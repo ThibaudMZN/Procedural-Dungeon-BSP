@@ -7,7 +7,7 @@
     const height = 400;
 
     let showDebug = false;
-    let seed = 42;
+    let seed = 69;
     let safeMargin = 0.4;
     let depth = 4;
     let minRoomSize = 20;
@@ -20,6 +20,81 @@
     const initRegion: Region = {
         x: { min: 0, max: width },
         y: { min: 0, max: height },
+    };
+
+    const joinRooms = (r1: Room, r2: Room, rng: Random): Corridor | null => {
+        let r1A = r1.position.y;
+        let r1B = r1A + r1.height;
+        let r1C = r1.position.x;
+        let r1D = r1C + r1.width;
+        let r2A = r2.position.y;
+        let r2B = r2A + r2.height;
+        let r2C = r2.position.x;
+        let r2D = r2C + r2.width;
+
+        for (let i = 0; i < 2; i++) {
+            const isYAxis = i == 1;
+            if (isYAxis) {
+                [r1A, r1C] = [r1C, r1A];
+                [r1B, r1D] = [r1D, r1B];
+                [r2A, r2C] = [r2C, r2A];
+                [r2B, r2D] = [r2D, r2B];
+            }
+            const aligned =
+                (r2A > r1A && r2A < r1B) || (r2B > r1A && r2B < r1B);
+            if (aligned) {
+                if (r2C == r1D || r1C == r2D) return;
+                const siblingFirst = r2C < r1C;
+                const start = siblingFirst ? r2D : r1D;
+                const stop = siblingFirst ? r1C : r2C;
+                const [otherMin, otherMax] = [r1A, r1B, r2A, r2B]
+                    .sort((a, b) => a - b)
+                    .slice(1, 3);
+                const s = rng.integer(2, corridorMaxSize);
+                const valueStart = rng.integer(otherMin, otherMax - s);
+                const delta = stop - start;
+                return {
+                    position: {
+                        x: isYAxis ? valueStart : start,
+                        y: isYAxis ? start : valueStart,
+                    },
+                    width: isYAxis ? s : delta,
+                    height: isYAxis ? delta : s,
+                };
+            }
+        }
+
+        /* Z shaped corridor */
+        // const highest =
+        //     room.position.y + room.height < sibling.position.y
+        //         ? room
+        //         : sibling;
+        // const lowest =
+        //     room.position.y + room.height < sibling.position.y
+        //         ? sibling
+        //         : room;
+        // const isRight = highest.position.x > lowest.position.x;
+
+        // const width = rng.integer(2, corridorMaxSize);
+        // const height =
+        //     lowest.position.y - (highest.position.y + highest.height);
+        // corridors.push({
+        //     position: {
+        //         x: highest.position.x,
+        //         y: highest.position.y + highest.height,
+        //     },
+        //     width,
+        //     height,
+        // });
+        // corridors.push({
+        //     position: {
+        //         x: highest.position.x,
+        //         y: highest.position.y + highest.height + height,
+        //     },
+        //     width,
+        //     height:
+        //         lowest.position.y - (highest.position.y + highest.height),
+        // });
     };
 
     $: {
@@ -76,83 +151,11 @@
                 (r) => r.node.id == room.node.getSibling().id
             );
             if (markedDone.includes(sibling.node.id)) continue;
-            const xAligned =
-                (sibling.position.y >= room.position.y &&
-                    sibling.position.y <= room.position.y + room.height) ||
-                (sibling.position.y + sibling.height >= room.position.y &&
-                    sibling.position.y + sibling.height <=
-                        room.position.y + room.height);
-            if (xAligned) {
-                const siblingFirst = sibling.position.x < room.position.x;
-                const xStart = siblingFirst
-                    ? sibling.position.x + sibling.width
-                    : room.position.x + room.width;
-                const xStop = siblingFirst
-                    ? room.position.x
-                    : sibling.position.x;
-                const yStart = Math.max(room.position.y, sibling.position.y);
-                corridors.push({
-                    position: { x: xStart, y: yStart },
-                    width: Math.abs(xStop - xStart),
-                    height: rng.integer(2, corridorMaxSize),
-                });
+            const corridor = joinRooms(room, sibling, rng);
+            if (corridor) {
+                corridors.push(corridor);
                 markedDone.push(room.node.id);
-                continue;
             }
-            const yAligned =
-                (sibling.position.x >= room.position.x &&
-                    sibling.position.x <= room.position.x + room.width) ||
-                (sibling.position.x + sibling.width >= room.position.x &&
-                    sibling.position.x + sibling.width <=
-                        room.position.x + room.width);
-            if (yAligned) {
-                const siblingFirst = sibling.position.y < room.position.y;
-                const yStart = siblingFirst
-                    ? sibling.position.y + sibling.height
-                    : room.position.y + room.height;
-                const yStop = siblingFirst
-                    ? room.position.y
-                    : sibling.position.y;
-                const xStart = Math.max(room.position.x, sibling.position.x);
-                corridors.push({
-                    position: { x: xStart, y: yStart },
-                    width: rng.integer(2, corridorMaxSize),
-                    height: Math.abs(yStop - yStart),
-                });
-                markedDone.push(room.node.id);
-                continue;
-            }
-
-            // const highest =
-            //     room.position.y + room.height < sibling.position.y
-            //         ? room
-            //         : sibling;
-            // const lowest =
-            //     room.position.y + room.height < sibling.position.y
-            //         ? sibling
-            //         : room;
-            // const isRight = highest.position.x > lowest.position.x;
-
-            // const width = rng.integer(2, corridorMaxSize);
-            // const height =
-            //     lowest.position.y - (highest.position.y + highest.height);
-            // corridors.push({
-            //     position: {
-            //         x: highest.position.x,
-            //         y: highest.position.y + highest.height,
-            //     },
-            //     width,
-            //     height,
-            // });
-            // corridors.push({
-            //     position: {
-            //         x: highest.position.x,
-            //         y: highest.position.y + highest.height + height,
-            //     },
-            //     width,
-            //     height:
-            //         lowest.position.y - (highest.position.y + highest.height),
-            // });
         }
     }
 </script>
